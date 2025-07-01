@@ -1,26 +1,43 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { Suspense, lazy } from 'react'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { Layout } from './components/layout/Layout'
 import { LoginForm } from './components/auth/LoginForm'
-import { Dashboard } from './pages/Dashboard'
-import { Directory } from './pages/Directory'
-import { LeaveManagement } from './pages/LeaveManagement'
-import { Announcements } from './pages/Announcements'
-import { Tasks } from './pages/Tasks'
-import { Profile } from './pages/Profile'
-import { ProjectUpdates } from './pages/ProjectUpdates'
 import { Toaster } from 'sonner'
 import './App.css'
+
+// Lazy load all pages for better performance
+const Dashboard = lazy(() => import('./pages/Dashboard').then(module => ({ default: module.Dashboard })))
+const Directory = lazy(() => import('./pages/Directory').then(module => ({ default: module.Directory })))
+const LeaveManagement = lazy(() => import('./pages/LeaveManagement').then(module => ({ default: module.LeaveManagement })))
+const Announcements = lazy(() => import('./pages/Announcements').then(module => ({ default: module.Announcements })))
+const Tasks = lazy(() => import('./pages/Tasks').then(module => ({ default: module.Tasks })))
+const Profile = lazy(() => import('./pages/Profile').then(module => ({ default: module.Profile })))
+const ProjectUpdates = lazy(() => import('./pages/ProjectUpdates').then(module => ({ default: module.ProjectUpdates })))
+const AdminPanel = lazy(() => import('./pages/AdminPanel').then(module => ({ default: module.AdminPanel })))
+const Reports = lazy(() => import('./pages/Reports').then(module => ({ default: module.Reports })))
+
+// Loading component for suspense fallback
+function PageLoader() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+        <p className="mt-2 text-sm text-muted-foreground">Loading page...</p>
+      </div>
+    </div>
+  )
+}
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
   
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-muted-foreground">Loading your profile...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-3 text-sm text-muted-foreground">Loading...</p>
         </div>
       </div>
     )
@@ -38,10 +55,10 @@ function AppContent() {
   
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-muted-foreground">Initializing application...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-3 text-sm text-muted-foreground">Starting app...</p>
         </div>
       </div>
     )
@@ -56,7 +73,9 @@ function AppContent() {
         element={
           <ProtectedRoute>
             <Layout>
-              <Dashboard />
+              <Suspense fallback={<PageLoader />}>
+                <Dashboard />
+              </Suspense>
             </Layout>
           </ProtectedRoute>
         }
@@ -66,7 +85,9 @@ function AppContent() {
         element={
           <ProtectedRoute>
             <Layout>
-              <Directory />
+              <Suspense fallback={<PageLoader />}>
+                <Directory />
+              </Suspense>
             </Layout>
           </ProtectedRoute>
         }
@@ -76,7 +97,9 @@ function AppContent() {
         element={
           <ProtectedRoute>
             <Layout>
-              <LeaveManagement />
+              <Suspense fallback={<PageLoader />}>
+                <LeaveManagement />
+              </Suspense>
             </Layout>
           </ProtectedRoute>
         }
@@ -86,7 +109,9 @@ function AppContent() {
         element={
           <ProtectedRoute>
             <Layout>
-              <Announcements />
+              <Suspense fallback={<PageLoader />}>
+                <Announcements />
+              </Suspense>
             </Layout>
           </ProtectedRoute>
         }
@@ -96,7 +121,9 @@ function AppContent() {
         element={
           <ProtectedRoute>
             <Layout>
-              <Tasks />
+              <Suspense fallback={<PageLoader />}>
+                <Tasks />
+              </Suspense>
             </Layout>
           </ProtectedRoute>
         }
@@ -106,7 +133,9 @@ function AppContent() {
         element={
           <ProtectedRoute>
             <Layout>
-              <ProjectUpdates />
+              <Suspense fallback={<PageLoader />}>
+                <ProjectUpdates />
+              </Suspense>
             </Layout>
           </ProtectedRoute>
         }
@@ -116,7 +145,9 @@ function AppContent() {
         element={
           <ProtectedRoute>
             <Layout>
-              <Profile />
+              <Suspense fallback={<PageLoader />}>
+                <Profile />
+              </Suspense>
             </Layout>
           </ProtectedRoute>
         }
@@ -126,10 +157,9 @@ function AppContent() {
         element={
           <ProtectedRoute>
             <Layout>
-              <div className="text-center py-12">
-                <h2 className="text-2xl font-bold mb-4">Reports & Analytics</h2>
-                <p className="text-muted-foreground">Coming soon...</p>
-              </div>
+              <Suspense fallback={<PageLoader />}>
+                <Reports />
+              </Suspense>
             </Layout>
           </ProtectedRoute>
         }
@@ -139,10 +169,9 @@ function AppContent() {
         element={
           <ProtectedRoute>
             <Layout>
-              <div className="text-center py-12">
-                <h2 className="text-2xl font-bold mb-4">Admin Panel</h2>
-                <p className="text-muted-foreground">Coming soon...</p>
-              </div>
+              <Suspense fallback={<PageLoader />}>
+                <AdminPanel />
+              </Suspense>
             </Layout>
           </ProtectedRoute>
         }

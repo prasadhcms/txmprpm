@@ -199,22 +199,22 @@ body {
     background: hsl(var(--destructive));
   }
   
-  /* Modern Card Hover Effects */
+  /* Subtle Card Hover Effects */
   .card-hover {
-    @apply transition-all duration-300 ease-out;
-    @apply hover:shadow-xl hover:-translate-y-1;
+    @apply transition-shadow duration-200 ease-out;
+    @apply hover:shadow-md;
   }
   
   .card-interactive {
-    @apply transition-all duration-200 ease-out;
-    @apply hover:shadow-lg hover:scale-[1.02] active:scale-[0.98];
+    @apply transition-shadow duration-150 ease-out;
+    @apply hover:shadow-lg;
   }
   
-  /* Modern Button Styles */
+  /* Subtle Button Styles */
   .btn-modern {
     @apply relative overflow-hidden;
-    @apply transition-all duration-200 ease-out;
-    @apply hover:shadow-lg active:scale-95;
+    @apply transition-shadow duration-150 ease-out;
+    @apply hover:shadow-md;
   }
   
   .btn-modern::before {
@@ -253,9 +253,8 @@ body {
     @apply w-14 h-14 rounded-full shadow-xl;
     @apply bg-primary text-primary-foreground;
     @apply flex items-center justify-center;
-    @apply transition-all duration-300 ease-out;
-    @apply hover:scale-110 hover:shadow-2xl;
-    @apply active:scale-95;
+    @apply transition-shadow duration-150 ease-out;
+    @apply hover:shadow-2xl;
   }
   
   /* Status Indicators */
@@ -276,30 +275,17 @@ body {
     border-top-color: hsl(var(--primary));
   }
   
-  /* Smooth Reveal Animation */
+  /* Instant Reveal - No Animation Delay */
   .reveal {
-    @apply opacity-0 translate-y-4;
-    animation: reveal 0.6s ease-out forwards;
+    @apply opacity-100 translate-y-0;
+    /* Removed reveal animation for instant loading */
   }
   
-  @keyframes reveal {
-    to {
-      @apply opacity-100 translate-y-0;
-    }
-  }
-  
-  /* Stagger Animation for Lists */
+  /* Instant Load for Lists - No Delays */
   .stagger-item {
-    @apply opacity-0 translate-y-4;
-    animation: reveal 0.6s ease-out forwards;
+    @apply opacity-100 translate-y-0;
+    /* Removed stagger delays for instant loading */
   }
-  
-  .stagger-item:nth-child(1) { animation-delay: 0.1s; }
-  .stagger-item:nth-child(2) { animation-delay: 0.2s; }
-  .stagger-item:nth-child(3) { animation-delay: 0.3s; }
-  .stagger-item:nth-child(4) { animation-delay: 0.4s; }
-  .stagger-item:nth-child(5) { animation-delay: 0.5s; }
-  .stagger-item:nth-child(6) { animation-delay: 0.6s; }
 }
 
 @layer utilities {

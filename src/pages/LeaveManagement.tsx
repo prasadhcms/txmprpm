@@ -5,12 +5,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Calendar, Plus, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react'
+import { Calendar, Plus, Clock, CheckCircle, XCircle } from 'lucide-react'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
 import { Database } from '@/types/database'
@@ -143,6 +143,14 @@ export function LeaveManagement() {
 
   const pendingRequests = leaveRequests.filter(req => req.status === 'pending')
   const myRequests = leaveRequests.filter(req => req.employee_id === profile?.id)
+  
+  // Smart default tab based on user role
+  const getDefaultTab = () => {
+    if (profile?.role === 'manager' || profile?.role === 'super_admin') {
+      return 'pending-approvals'
+    }
+    return 'my-requests'
+  }
 
   if (loading) {
     return (
@@ -180,6 +188,9 @@ export function LeaveManagement() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Apply for Leave</DialogTitle>
+              <DialogDescription>
+                Fill out the form to request leave. Your manager will be notified for approval.
+              </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
@@ -234,7 +245,7 @@ export function LeaveManagement() {
         </Dialog>
       </div>
 
-      <Tabs defaultValue="my-requests" className="space-y-4">
+      <Tabs defaultValue={getDefaultTab()} className="space-y-4">
         <TabsList>
           <TabsTrigger value="my-requests">My Requests</TabsTrigger>
           {(profile?.role === 'manager' || profile?.role === 'super_admin') && (

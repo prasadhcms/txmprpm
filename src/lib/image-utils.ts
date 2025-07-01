@@ -58,7 +58,7 @@ export class ImageUtils {
   }
 
   // Upload profile picture with fallback to base64
-  static async uploadProfilePictureFallback(file: File, userId: string): Promise<{ url?: string; error?: string }> {
+  static async uploadProfilePictureFallback(file: File, _userId: string): Promise<{ url?: string; error?: string }> {
     try {
       // Validate file type
       if (!file.type.startsWith('image/')) {
@@ -80,6 +80,33 @@ export class ImageUtils {
       return { url: base64String }
     } catch (error: any) {
       console.error('Error processing image:', error)
+      return { error: error.message || 'Failed to process image' }
+    }
+  }
+
+  // Upload project image with fallback to base64
+  static async uploadProjectImageFallback(file: File, _userId: string): Promise<{ url?: string; error?: string }> {
+    try {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        return { error: 'Please select an image file' }
+      }
+
+      // Validate file size (3MB limit for base64 project images)
+      if (file.size > 3 * 1024 * 1024) {
+        return { error: 'Image size must be less than 3MB for project images' }
+      }
+
+      // Resize image to reduce size (larger than profile pics but still reasonable)
+      const resizedFile = await this.resizeImage(file, 800, 600, 0.8)
+      
+      // Convert to base64
+      const base64String = await this.fileToBase64(resizedFile)
+      
+      // Return the base64 string as URL
+      return { url: base64String }
+    } catch (error: any) {
+      console.error('Error processing project image:', error)
       return { error: error.message || 'Failed to process image' }
     }
   }

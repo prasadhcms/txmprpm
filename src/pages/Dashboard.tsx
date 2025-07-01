@@ -1,264 +1,56 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { supabase } from '@/lib/supabase'
+import { dataService, DashboardStats, RecentActivity } from '@/lib/data-service'
+import { usePerformance } from '@/hooks/use-performance'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Users, Calendar, CheckSquare, Megaphone, TrendingUp, Clock, ArrowUpRight, Eye } from 'lucide-react'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import { Link } from 'react-router-dom'
 import { format } from 'date-fns'
 import { QuickStatsWidget } from '@/components/dashboard/QuickStatsWidget'
+import { CSSBarChart, CSSPieChart } from '@/components/ui/css-charts'
 
-interface DashboardStats {
-  totalEmployees: number
-  pendingLeaves: number
-  activeTasks: number
-  recentAnnouncements: number
-  leavesByDepartment: Array<{ name: string; value: number }>
-  tasksByStatus: Array<{ name: string; value: number; color: string }>
-  myTasks: number
-  myPendingLeaves: number
-  teamSize: number
-  upcomingDeadlines: number
-}
-
-interface RecentActivity {
-  id: string
-  type: 'task' | 'leave' | 'announcement' | 'project'
-  title: string
-  description: string
-  timestamp: string
-  status?: string
-  priority?: string
-}
 
 export function Dashboard() {
   const { profile } = useAuth()
+  const { trackDataFetch } = usePerformance('Dashboard')
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetchDashboardStats()
-    fetchRecentActivity()
+    if (profile) {
+      fetchData()
+    }
   }, [profile])
 
-  const fetchDashboardStats = async () => {
+  const fetchData = async () => {
+    if (!profile) return
+
     try {
-      // Fetch employees count
-      const { count: employeesCount } = await supabase
-        .from('profiles')
-        .select('*', { count: 'exact', head: true })
-        .eq('is_active', true)
+      setLoading(true)
+      trackDataFetch.start()
+      
+      // Fetch dashboard stats and recent activity in parallel
+      const [statsData, activityData] = await Promise.all([
+        dataService.getDashboardStats(profile.id, profile.role, profile.department),
+        dataService.getRecentActivity(profile.id)
+      ])
 
-      // Fetch pending leaves
-      const { count: pendingLeavesCount } = await supabase
-        .from('leave_requests')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'pending')
-
-      // Fetch active tasks
-      const { count: activeTasksCount } = await supabase
-        .from('tasks')
-        .select('*', { count: 'exact', head: true })
-        .in('status', ['pending', 'in_progress'])
-
-      // Fetch recent announcements
-      const { count: announcementsCount } = await supabase
-        .from('announcements')
-        .select('*', { count: 'exact', head: true })
-
-      // Fetch leaves by department
-      const { data: leavesByDept } = await supabase
-        .from('leave_requests')
-        .select(`
-          id,
-          profiles!leave_requests_employee_id_fkey(department)
-        `)
-        .eq('status', 'approved')
-
-      // Fetch tasks by status
-      const { data: tasksByStatus } = await supabase
-        .from('tasks')
-        .select('status')
-
-      // Process data
-      const leavesByDepartment = leavesByDept?.reduce((acc: any[], curr: any) => {
-        const dept = curr.profiles?.department
-        if (dept) {
-          const existing = acc.find(item => item.name === dept)
-          if (existing) {
-            existing.value++
-          } else {
-            acc.push({ name: dept, value: 1 })
-          }
-        }
-        return acc
-      }, []) || []
-
-      const taskStatusData = [
-        { 
-          name: 'Pending', 
-          value: tasksByStatus?.filter(t => t.status === 'pending').length || 0,
-          color: '#f59e0b'
-        },
-        { 
-          name: 'In Progress', 
-          value: tasksByStatus?.filter(t => t.status === 'in_progress').length || 0,
-          color: '#3b82f6'
-        },
-        { 
-          name: 'Completed', 
-          value: tasksByStatus?.filter(t => t.status === 'completed').length || 0,
-          color: '#10b981'
-        }
-      ]
-
-      // Fetch personalized data
-      let myTasks = 0
-      let myPendingLeaves = 0
-      let teamSize = 0
-      let upcomingDeadlines = 0
-
-      if (profile) {
-        // My tasks
-        const { count: myTasksCount } = await supabase
-          .from('tasks')
-          .select('*', { count: 'exact', head: true })
-          .eq('assigned_to', profile.id)
-          .in('status', ['pending', 'in_progress'])
-
-        myTasks = myTasksCount || 0
-
-        // My pending leaves
-        const { count: myLeavesCount } = await supabase
-          .from('leave_requests')
-          .select('*', { count: 'exact', head: true })
-          .eq('employee_id', profile.id)
-          .eq('status', 'pending')
-
-        myPendingLeaves = myLeavesCount || 0
-
-        // Team size (if manager)
-        if (profile.role === 'manager' || profile.role === 'super_admin') {
-          const { count: teamCount } = await supabase
-            .from('profiles')
-            .select('*', { count: 'exact', head: true })
-            .eq('department', profile.department)
-            .eq('is_active', true)
-
-          teamSize = teamCount || 0
-        }
-
-        // Upcoming deadlines (tasks due in next 7 days)
-        const nextWeek = new Date()
-        nextWeek.setDate(nextWeek.getDate() + 7)
-        
-        const { count: deadlinesCount } = await supabase
-          .from('tasks')
-          .select('*', { count: 'exact', head: true })
-          .eq('assigned_to', profile.id)
-          .lte('due_date', nextWeek.toISOString().split('T')[0])
-          .in('status', ['pending', 'in_progress'])
-
-        upcomingDeadlines = deadlinesCount || 0
-      }
-
-      setStats({
-        totalEmployees: employeesCount || 0,
-        pendingLeaves: pendingLeavesCount || 0,
-        activeTasks: activeTasksCount || 0,
-        recentAnnouncements: announcementsCount || 0,
-        leavesByDepartment,
-        tasksByStatus: taskStatusData,
-        myTasks,
-        myPendingLeaves,
-        teamSize,
-        upcomingDeadlines
-      })
+      setStats(statsData)
+      setRecentActivity(activityData)
+      trackDataFetch.end()
     } catch (error) {
-      console.error('Error fetching dashboard stats:', error)
+      console.error('Error fetching dashboard data:', error)
     } finally {
       setLoading(false)
     }
   }
 
-  const fetchRecentActivity = async () => {
-    if (!profile) return
-
-    try {
-      const activities: RecentActivity[] = []
-
-      // Recent tasks assigned to user
-      const { data: recentTasks } = await supabase
-        .from('tasks')
-        .select('id, title, description, created_at, status, priority')
-        .eq('assigned_to', profile.id)
-        .order('created_at', { ascending: false })
-        .limit(3)
-
-      recentTasks?.forEach(task => {
-        activities.push({
-          id: task.id,
-          type: 'task',
-          title: `Task: ${task.title}`,
-          description: task.description,
-          timestamp: task.created_at,
-          status: task.status,
-          priority: task.priority
-        })
-      })
-
-      // Recent leave requests
-      const { data: recentLeaves } = await supabase
-        .from('leave_requests')
-        .select('id, leave_type, reason, created_at, status')
-        .eq('employee_id', profile.id)
-        .order('created_at', { ascending: false })
-        .limit(2)
-
-      recentLeaves?.forEach(leave => {
-        activities.push({
-          id: leave.id,
-          type: 'leave',
-          title: `Leave Request: ${leave.leave_type}`,
-          description: leave.reason,
-          timestamp: leave.created_at,
-          status: leave.status
-        })
-      })
-
-      // Recent announcements
-      const { data: recentAnnouncements } = await supabase
-        .from('announcements')
-        .select('id, title, content, created_at')
-        .or(`department.is.null,department.eq.${profile.department}`)
-        .order('created_at', { ascending: false })
-        .limit(2)
-
-      recentAnnouncements?.forEach(announcement => {
-        activities.push({
-          id: announcement.id,
-          type: 'announcement',
-          title: `Announcement: ${announcement.title}`,
-          description: announcement.content.substring(0, 100) + '...',
-          timestamp: announcement.created_at
-        })
-      })
-
-      // Sort by timestamp and take the most recent 5
-      activities.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-      setRecentActivity(activities.slice(0, 5))
-
-    } catch (error) {
-      console.error('Error fetching recent activity:', error)
-    }
-  }
-
   if (loading) {
     return (
-      <div className="space-y-8 animate-fade-in">
+      <div className="space-y-8 ">
         {/* Header Skeleton */}
         <div className="space-y-4">
           <div className="h-10 bg-gradient-to-r from-muted via-muted/50 to-muted rounded-xl w-80 animate-pulse"></div>
@@ -308,7 +100,7 @@ export function Dashboard() {
   }
 
   return (
-    <div className="space-y-8 animate-fade-in-up">
+    <div className="space-y-8 relative">
       {/* Welcome Header */}
       <div className="relative">
         <div className="absolute inset-0 bg-muted/30 rounded-2xl -z-10" />
@@ -343,7 +135,7 @@ export function Dashboard() {
 
       {/* Personalized Stats Cards */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="stagger-item card-hover border shadow-sm bg-card group">
+        <Card className="card-hover border shadow-sm bg-card group">
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
@@ -373,7 +165,7 @@ export function Dashboard() {
         </Card>
 
         {stats?.upcomingDeadlines && stats.upcomingDeadlines > 0 && (
-          <Card className="stagger-item card-hover border shadow-sm bg-card group">
+          <Card className="card-hover border shadow-sm bg-card group">
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
@@ -402,7 +194,7 @@ export function Dashboard() {
         )}
 
         {stats?.myPendingLeaves && stats.myPendingLeaves > 0 && (
-          <Card className="stagger-item card-hover border shadow-sm bg-card group">
+          <Card className="card-hover border shadow-sm bg-card group">
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
@@ -431,7 +223,7 @@ export function Dashboard() {
         )}
 
         {(profile?.role === 'manager' || profile?.role === 'super_admin') && (
-          <Card className="stagger-item card-hover border shadow-sm bg-card group">
+          <Card className="card-hover border shadow-sm bg-card group">
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
@@ -464,7 +256,7 @@ export function Dashboard() {
 
       {/* General Stats Overview Cards */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="stagger-item card-hover border shadow-sm bg-card group">
+        <Card className="card-hover border shadow-sm bg-card group">
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
@@ -491,7 +283,7 @@ export function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="stagger-item card-hover border shadow-sm bg-card group">
+        <Card className="card-hover border shadow-sm bg-card group">
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
@@ -520,7 +312,7 @@ export function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="stagger-item card-hover border shadow-sm bg-card group">
+        <Card className="card-hover border shadow-sm bg-card group">
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
@@ -547,7 +339,7 @@ export function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="stagger-item card-hover border shadow-sm bg-card group">
+        <Card className="card-hover border shadow-sm bg-card group">
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
@@ -602,33 +394,16 @@ export function Dashboard() {
           </CardHeader>
           <CardContent>
             {stats?.leavesByDepartment && stats.leavesByDepartment.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={stats.leavesByDepartment}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis 
-                    dataKey="name" 
-                    tick={{ fontSize: 12 }}
-                    stroke="#666"
-                  />
-                  <YAxis 
-                    tick={{ fontSize: 12 }}
-                    stroke="#666"
-                  />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'white', 
-                      border: '1px solid #e5e7eb',
-                      borderRadius: '8px',
-                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                    }}
-                  />
-                  <Bar 
-                    dataKey="value" 
-                    fill="#3b82f6" 
-                    radius={[4, 4, 0, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
+              <CSSBarChart 
+                data={stats.leavesByDepartment.map(item => ({
+                  name: item.name,
+                  value: item.value,
+                  color: '#3b82f6'
+                }))}
+                height={300}
+                showValues={true}
+                showLabels={true}
+              />
             ) : (
               <div className="flex items-center justify-center h-[300px] text-gray-500">
                 <div className="text-center">
@@ -662,32 +437,18 @@ export function Dashboard() {
           </CardHeader>
           <CardContent>
             {stats?.tasksByStatus.some(item => item.value > 0) ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={stats.tasksByStatus.filter(item => item.value > 0)}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    outerRadius={100}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {stats.tasksByStatus.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'white', 
-                      border: '1px solid #e5e7eb',
-                      borderRadius: '8px',
-                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+              <div className="flex justify-center">
+                <CSSPieChart 
+                  data={stats.tasksByStatus.filter(item => item.value > 0).map(item => ({
+                    name: item.name,
+                    value: item.value,
+                    color: item.color
+                  }))}
+                  size={200}
+                  showLabels={true}
+                  showLegend={true}
+                />
+              </div>
             ) : (
               <div className="flex items-center justify-center h-[300px] text-gray-500">
                 <div className="text-center">

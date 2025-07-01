@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Megaphone, Plus, AlertTriangle, Users, Calendar } from 'lucide-react'
+import { Megaphone, Plus, AlertTriangle, Calendar } from 'lucide-react'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
 import { Database } from '@/types/database'
@@ -144,22 +144,24 @@ export function Announcements() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">Announcements</h2>
-          <p className="text-muted-foreground">
+    <div className="space-y-6 w-full overflow-hidden">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+        <div className="min-w-0 flex-1">
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Announcements</h2>
+          <p className="text-muted-foreground text-sm sm:text-base">
             Stay updated with company news and updates
           </p>
         </div>
         {profile?.role === 'super_admin' && (
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                New Announcement
-              </Button>
-            </DialogTrigger>
+          <div className="flex-shrink-0">
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="w-full sm:w-auto">
+                  <Plus className="mr-2 h-4 w-4" />
+                  <span className="hidden sm:inline">New Announcement</span>
+                  <span className="sm:hidden">New</span>
+                </Button>
+              </DialogTrigger>
             <DialogContent className="max-w-2xl">
               <DialogHeader>
                 <DialogTitle>Create New Announcement</DialogTitle>
@@ -214,7 +216,8 @@ export function Announcements() {
                 <Button type="submit" className="w-full">Publish Announcement</Button>
               </form>
             </DialogContent>
-          </Dialog>
+            </Dialog>
+          </div>
         )}
       </div>
 
@@ -244,22 +247,22 @@ export function Announcements() {
                       )}
                       {getVisibilityBadge(announcement.department)}
                     </div>
-                    <CardTitle className="text-xl">{announcement.title}</CardTitle>
-                    <CardDescription className="flex items-center gap-4 mt-2">
-                      <div className="flex items-center gap-2">
-                        <Avatar className="h-6 w-6">
+                    <CardTitle className="text-lg sm:text-xl break-words">{announcement.title}</CardTitle>
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Avatar className="h-6 w-6 flex-shrink-0">
                           <AvatarImage src={announcement.profiles.profile_picture || undefined} />
                           <AvatarFallback className="text-xs">
                             {announcement.profiles.full_name.split(' ').map(n => n[0]).join('')}
                           </AvatarFallback>
                         </Avatar>
-                        <span>{announcement.profiles.full_name}</span>
+                        <span className="truncate">{announcement.profiles.full_name}</span>
                       </div>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 flex-shrink-0">
                         <Calendar className="h-4 w-4" />
                         <span>{format(new Date(announcement.created_at), 'MMM dd, yyyy')}</span>
                       </div>
-                    </CardDescription>
+                    </div>
                   </div>
                 </div>
               </CardHeader>

@@ -81,7 +81,7 @@ export function UserPreferences({ onSave }: UserPreferencesProps) {
     setLoading(true)
     try {
       // Here you would save to your backend
-      await new Promise(resolve => setTimeout(resolve, 1000)) // Simulate API call
+      // Removed artificial delay for better performance
       
       toast.success('Preferences saved successfully!')
       onSave?.(preferences)

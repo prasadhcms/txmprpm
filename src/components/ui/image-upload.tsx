@@ -1,6 +1,5 @@
 import React, { useRef, useState } from 'react'
 import { Button } from './button'
-import { Input } from './input'
 import { Label } from './label'
 import { Alert, AlertDescription } from './alert'
 import { Upload, X, Image as ImageIcon, Loader2 } from 'lucide-react'
@@ -72,7 +71,13 @@ export function ImageUpload({
           result = await ImageUtils.uploadProfilePictureFallback(file, userId)
         }
       } else {
+        // Try storage first, fallback to base64 if RLS issues
         result = await StorageService.uploadProjectImage(file, userId)
+        
+        if (result.error && result.error.includes('row-level security')) {
+          console.log('Storage RLS issue for projects, using base64 fallback...')
+          result = await ImageUtils.uploadProjectImageFallback(file, userId)
+        }
       }
 
       if (result.error) {

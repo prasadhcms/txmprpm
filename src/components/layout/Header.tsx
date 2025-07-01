@@ -20,7 +20,8 @@ import {
   LogOut,
   CheckSquare,
   Calendar,
-  Megaphone
+  Megaphone,
+  Menu
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { format } from 'date-fns'
@@ -34,7 +35,12 @@ interface Notification {
   read: boolean
 }
 
-export function Header() {
+interface HeaderProps {
+  onMenuClick?: () => void
+  showMenuButton?: boolean
+}
+
+export function Header({ onMenuClick, showMenuButton = false }: HeaderProps) {
   const { profile, signOut } = useAuth()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
@@ -102,18 +108,38 @@ export function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-50 w-full border-b-2 border-border/60 bg-background/98 backdrop-blur supports-[backdrop-filter]:bg-background/80 shadow-sm shadow-black/15 relative">
+      {/* Enhanced visual separation with subtle gradient */}
+      <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-border to-transparent"></div>
+      {/* Subtle inner glow for depth */}
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
       <div className="container flex h-16 items-center justify-between px-6">
-        {/* Left Section - Logo */}
-        <div className="flex items-center justify-between">
+        {/* Left Section - Hamburger + Logo */}
+        <div className="flex items-center space-x-3">
+          {/* Hamburger Menu Button - Only on Mobile */}
+          {showMenuButton && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                onMenuClick?.()
+              }}
+              className="lg:hidden p-2 hover:bg-muted/80 relative z-10"
+              aria-label="Toggle menu"
+              data-hamburger-button
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+          )}
+          
+          {/* Logo Section */}
           <div className="flex items-center space-x-3">
             <div className="flex items-center space-x-3">
               <img src={logo} alt="Texam Logo" />
             </div>
-            <div className="text-left">
-              <h1 className="text-xl font-bold gradient-text">Texam Projects</h1>
-              <p className="text-xs text-muted-foreground">WorkFlow Management Suite</p>
-            </div>
+            <p className="text-xs text-muted-foreground hidden sm:block">WorkFlow Management</p>
           </div>
         </div>
 
@@ -135,7 +161,7 @@ export function Header() {
                 )}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-80" align="end" forceMount>
+            <DropdownMenuContent className="w-80 z-[60]" align="end" forceMount>
               <DropdownMenuLabel className="font-normal">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Notifications</span>
@@ -212,7 +238,7 @@ export function Header() {
                   <span className="absolute -bottom-1 -right-1 h-3 w-3 bg-success rounded-full border-2 border-background" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-64" align="end" forceMount>
+              <DropdownMenuContent className="w-64 z-[60]" align="end" forceMount>
                 <DropdownMenuLabel className="font-normal">
                   <div className="flex flex-col space-y-2">
                     <div className="flex items-center space-x-3">

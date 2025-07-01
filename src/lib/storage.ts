@@ -48,7 +48,7 @@ export class StorageService {
   }
 
   // Upload profile picture - Modern Supabase approach
-  static async uploadProfilePicture(file: File, userId: string): Promise<{ url?: string; error?: string }> {
+  static async uploadProfilePicture(file: File, _userId: string): Promise<{ url?: string; error?: string }> {
     try {
       // Validate file type
       if (!file.type.startsWith('image/')) {
@@ -66,7 +66,7 @@ export class StorageService {
       const fileName = `profile_${timestamp}.${fileExt}`
 
       // Upload to public bucket (no complex policies needed)
-      const { data, error: uploadError } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from(this.BUCKETS.PROFILES)
         .upload(fileName, file, {
           cacheControl: '3600',
@@ -91,7 +91,7 @@ export class StorageService {
   }
 
   // Upload project image - Modern Supabase approach
-  static async uploadProjectImage(file: File, userId: string): Promise<{ url?: string; error?: string }> {
+  static async uploadProjectImage(file: File, _userId: string): Promise<{ url?: string; error?: string }> {
     try {
       // Validate file type
       if (!file.type.startsWith('image/')) {
@@ -109,7 +109,7 @@ export class StorageService {
       const fileName = `project_${timestamp}.${fileExt}`
 
       // Upload to public bucket
-      const { data, error: uploadError } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from(this.BUCKETS.PROJECTS)
         .upload(fileName, file, {
           cacheControl: '3600',

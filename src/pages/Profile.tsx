@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
-import { StorageService } from '@/lib/storage'
 import { ImageUtils } from '@/lib/image-utils'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -130,14 +129,14 @@ export function Profile() {
   }
 
   return (
-    <div className="space-y-8 animate-fade-in-up">
+    <div className="space-y-8 ">
       {/* Modern Header */}
       <div className="relative">
         <div className="absolute inset-0 bg-muted/30 rounded-2xl -z-10" />
         <div className="p-8 space-y-4">
           <div className="flex items-center space-x-4">
             <div className="relative">
-              <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center shadow-lg animate-float">
+              <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center shadow-lg ">
                 <User className="h-8 w-8 text-primary-foreground" />
               </div>
               <div className="absolute -top-1 -right-1 w-4 h-4 bg-success rounded-full animate-pulse" />

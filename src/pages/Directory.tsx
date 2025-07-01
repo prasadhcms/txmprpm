@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { dataService } from '@/lib/data-service'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Search, Mail, Phone, MapPin, Calendar, User, Users } from 'lucide-react'
 import { Database } from '@/types/database'
 
@@ -31,14 +31,8 @@ export function Directory() {
 
   const fetchEmployees = async () => {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('is_active', true)
-        .order('full_name')
-
-      if (error) throw error
-      setEmployees(data || [])
+      const data = await dataService.getEmployees()
+      setEmployees(data)
     } catch (error) {
       console.error('Error fetching employees:', error)
     } finally {
@@ -91,7 +85,7 @@ export function Directory() {
 
   if (loading) {
     return (
-      <div className="space-y-8 animate-fade-in">
+      <div className="space-y-8 ">
         {/* Header Skeleton */}
         <div className="relative">
           <div className="absolute inset-0 bg-muted/30 rounded-2xl -z-10" />
@@ -133,7 +127,7 @@ export function Directory() {
   }
 
   return (
-    <div className="space-y-8 animate-fade-in-up">
+    <div className="space-y-8 ">
       {/* Modern Header */}
       <div className="relative">
         <div className="absolute inset-0 bg-muted/30 rounded-2xl -z-10" />
@@ -141,7 +135,7 @@ export function Directory() {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <div className="relative">
-                <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center shadow-lg animate-float">
+                <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center shadow-lg ">
                   <Users className="h-8 w-8 text-primary-foreground" />
                 </div>
                 <div className="absolute -top-1 -right-1 w-4 h-4 bg-success rounded-full animate-pulse" />
@@ -211,8 +205,8 @@ export function Directory() {
 
       {/* Employee Grid */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {filteredEmployees.map((employee, index) => (
-          <Card key={employee.id} className="stagger-item card-hover border shadow-sm bg-card group" style={{ animationDelay: `${index * 0.1}s` }}>
+        {filteredEmployees.map((employee, _index) => (
+          <Card key={employee.id} className="card-hover border shadow-sm bg-card group">
             <CardHeader className="pb-4">
               <div className="flex items-center space-x-4">
                 <div className="relative">
@@ -269,6 +263,9 @@ export function Directory() {
                 <DialogContent className="max-w-2xl">
                   <DialogHeader>
                     <DialogTitle>Employee Profile</DialogTitle>
+                    <DialogDescription>
+                      View detailed information about this employee.
+                    </DialogDescription>
                   </DialogHeader>
                   {selectedEmployee && (
                     <div className="space-y-6">

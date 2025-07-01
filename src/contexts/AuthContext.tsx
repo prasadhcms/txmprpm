@@ -27,6 +27,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
+  const [profileCache, setProfileCache] = useState<{ [key: string]: Profile }>({})
 
   // Debug info to help troubleshoot
   const debugInfo = {
@@ -37,38 +38,69 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      setUser(session?.user || null)
-      if (session?.user) {
-        fetchProfile(session.user.id)
-      } else {
-        setLoading(false)
-      }
-    }).catch((error) => {
-      console.error('❌ Error getting initial session:', error)
-      setLoading(false)
-    })
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+    let mounted = true
+    
+    // Get initial session with faster loading
+    const initializeAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession()
+        
+        if (!mounted) return
+        
+        if (error) {
+          console.error('❌ Error getting initial session:', error)
+          setLoading(false)
+          return
+        }
+        
         setUser(session?.user || null)
+        
         if (session?.user) {
           await fetchProfile(session.user.id)
         } else {
+          setLoading(false)
+        }
+      } catch (error) {
+        console.error('❌ Error initializing auth:', error)
+        if (mounted) setLoading(false)
+      }
+    }
+
+    initializeAuth()
+
+    // Listen for auth changes (but avoid duplicate profile fetches)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (!mounted) return
+        
+        setUser(session?.user || null)
+        
+        if (session?.user && event !== 'TOKEN_REFRESHED') {
+          // Only fetch profile for actual auth changes, not token refreshes
+          await fetchProfile(session.user.id)
+        } else if (!session?.user) {
           setProfile(null)
           setLoading(false)
         }
       }
     )
 
-    return () => subscription.unsubscribe()
+    return () => {
+      mounted = false
+      subscription.unsubscribe()
+    }
   }, [])
 
   const fetchProfile = async (userId: string) => {
     try {
-      // Add a timeout to prevent infinite loading (increased to 30 seconds)
+      // Check cache first for faster loading
+      if (profileCache[userId]) {
+        setProfile(profileCache[userId])
+        setLoading(false)
+        return
+      }
+      
+      // Quick timeout for better refresh performance (30 seconds)
       const timeoutPromise = new Promise((_, reject) => {
         setTimeout(() => reject(new Error('Profile fetch timeout')), 30000)
       })
@@ -95,6 +127,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setProfile(null)
       } else {
         setProfile(data)
+        // Cache the profile for faster subsequent loads
+        setProfileCache(prev => ({ ...prev, [userId]: data }))
       }
     } catch (error) {
       console.error('❌ Error in fetchProfile:', error)
@@ -137,7 +171,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(true)
     try {
       
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
       })

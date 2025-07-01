@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
+import { dataService } from '@/lib/data-service'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -11,7 +12,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { CheckSquare, Plus, Clock, AlertCircle, CheckCircle2, Users } from 'lucide-react'
+import { CheckSquare, Plus, Clock, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
 import { Database } from '@/types/database'
@@ -37,74 +38,32 @@ export function Tasks() {
 
   useEffect(() => {
     if (profile) {
-      fetchTasks()
-      fetchEmployees()
+      fetchData()
     }
   }, [profile])
 
-  const fetchTasks = async () => {
+  const fetchData = async () => {
+    if (!profile) return
+
     try {
+      setLoading(true)
       
-      let query = supabase
-        .from('tasks')
-        .select(`
-          *,
-          assigned_to_profile:profiles!assigned_to(*),
-          assigned_by_profile:profiles!assigned_by(*)
-        `)
-        .order('created_at', { ascending: false })
+      // Fetch tasks and employees in parallel using optimized service
+      const [tasksData, employeesData] = await Promise.all([
+        dataService.getTasks(profile.id, profile.role),
+        dataService.getEmployees()
+      ])
 
-      // Filter based on role
-      if (profile?.role === 'employee') {
-        query = query.eq('assigned_to', profile.id)
-      } else if (profile?.role === 'manager') {
-        // Managers can see tasks assigned to them, assigned by them, or in their department
-        query = query.or(`assigned_to.eq.${profile.id},assigned_by.eq.${profile.id},department.eq.${profile.department}`)
-      }
-      // Super admins can see all tasks (no additional filter needed)
-
-      const { data, error } = await query
-
-      if (error) {
-        console.error('Error fetching tasks:', error)
-        throw error
-      }
-      
-      setTasks(data || [])
+      setTasks(tasksData)
+      setEmployees(employeesData)
     } catch (error) {
-      console.error('Error fetching tasks:', error)
-      toast.error('Failed to fetch tasks')
+      console.error('Error fetching data:', error)
+      toast.error('Failed to fetch data')
     } finally {
       setLoading(false)
     }
   }
 
-  const fetchEmployees = async () => {
-    try {
-      
-      let query = supabase
-        .from('profiles')
-        .select('*')
-        .eq('is_active', true)
-        .order('full_name')
-
-      // If manager, only show their department
-      if (profile?.role === 'manager') {
-        query = query.eq('department', profile.department)
-      }
-
-      const { data, error } = await query
-
-      if (error) {
-        console.error('Error fetching employees:', error)
-        throw error
-      }
-      
-      setEmployees(data || [])
-    } catch (error) {
-      console.error('Error fetching employees:', error)
-    }
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -141,7 +100,7 @@ export function Tasks() {
       }
 
 
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('tasks')
         .insert(taskData)
         .select(`
@@ -158,7 +117,7 @@ export function Tasks() {
       toast.success('Task assigned successfully')
       setIsDialogOpen(false)
       setFormData({ title: '', description: '', assigned_to: '', due_date: '', priority: 'medium' })
-      fetchTasks()
+      fetchData()
     } catch (error: any) {
       console.error('Error creating task:', error)
       
@@ -183,7 +142,7 @@ export function Tasks() {
       if (error) throw error
 
       toast.success('Task status updated successfully')
-      fetchTasks()
+      fetchData()
     } catch (error) {
       console.error('Error updating task status:', error)
       toast.error('Failed to update task status')
@@ -214,10 +173,20 @@ export function Tasks() {
 
   const myTasks = tasks.filter(task => task.assigned_to === profile?.id)
   const assignedByMe = tasks.filter(task => task.assigned_by === profile?.id)
+  
+  // Smart default tab based on user role and task counts
+  const getDefaultTab = () => {
+    if (profile?.role === 'manager' || profile?.role === 'super_admin') {
+      // For managers/admins, prioritize "Assigned by Me" if they have tasks they've assigned
+      // Otherwise default to "My Tasks"
+      return assignedByMe.length > 0 ? 'assigned-by-me' : 'my-tasks'
+    }
+    return 'my-tasks'
+  }
 
   if (loading) {
     return (
-      <div className="space-y-8 animate-fade-in">
+      <div className="space-y-8 ">
         {/* Header Skeleton */}
         <div className="relative">
           <div className="absolute inset-0 bg-muted/30 rounded-2xl -z-10" />
@@ -259,35 +228,37 @@ export function Tasks() {
   }
 
   return (
-    <div className="space-y-8 animate-fade-in-up">
+    <div className="space-y-8 w-full overflow-hidden">
       {/* Modern Header */}
       <div className="relative">
         <div className="absolute inset-0 bg-muted/30 rounded-2xl -z-10" />
-        <div className="p-8 space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="relative">
-                <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center shadow-lg animate-float">
-                  <CheckSquare className="h-8 w-8 text-primary-foreground" />
+        <div className="p-4 sm:p-6 lg:p-8 space-y-4">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center space-y-4 sm:space-y-0 sm:space-x-4 min-w-0">
+              <div className="relative flex-shrink-0">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 bg-primary rounded-2xl flex items-center justify-center shadow-lg">
+                  <CheckSquare className="h-6 w-6 sm:h-8 sm:w-8 text-primary-foreground" />
                 </div>
-                <div className="absolute -top-1 -right-1 w-4 h-4 bg-success rounded-full animate-pulse" />
+                <div className="absolute -top-1 -right-1 w-3 h-3 sm:w-4 sm:h-4 bg-success rounded-full animate-pulse" />
               </div>
-              <div>
-                <h1 className="text-4xl font-bold text-primary-subtle">Task Management</h1>
-                <p className="text-lg text-muted-foreground mt-2">
+              <div className="min-w-0">
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-primary-subtle break-words">Task Management</h1>
+                <p className="text-sm sm:text-base lg:text-lg text-muted-foreground mt-1 sm:mt-2">
                   Organize and track tasks across your organization
                 </p>
               </div>
             </div>
             
             {(profile?.role === 'manager' || profile?.role === 'super_admin') && (
-              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Assign New Task
-                  </Button>
-                </DialogTrigger>
+              <div className="flex-shrink-0">
+                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105">
+                      <Plus className="mr-2 h-4 w-4" />
+                      <span className="hidden sm:inline">Assign New Task</span>
+                      <span className="sm:hidden">New Task</span>
+                    </Button>
+                  </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Assign New Task</DialogTitle>
@@ -358,13 +329,14 @@ export function Tasks() {
                 <Button type="submit" className="w-full bg-primary text-primary-foreground hover:bg-primary/90">Assign Task</Button>
               </form>
             </DialogContent>
-          </Dialog>
-        )}
+                </Dialog>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      <Tabs defaultValue="my-tasks" className="space-y-6">
+      <Tabs defaultValue={getDefaultTab()} className="space-y-6">
         <TabsList>
           <TabsTrigger value="my-tasks">My Tasks</TabsTrigger>
           {(profile?.role === 'manager' || profile?.role === 'super_admin') && (
@@ -392,21 +364,21 @@ export function Tasks() {
             </Card>
           ) : (
             <div className="grid gap-6">
-              {myTasks.map((task, index) => (
-                <Card key={task.id} className="stagger-item card-hover border shadow-sm bg-card group" style={{ animationDelay: `${index * 0.1}s` }}>
+              {myTasks.map((task, _index) => (
+                <Card key={task.id} className="card-hover border shadow-sm bg-card group">
                   <CardHeader className="pb-4">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center shadow-sm group-hover:shadow-md transition-all duration-200">
-                            <CheckSquare className="h-5 w-5 text-primary-foreground" />
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start gap-3 mb-2">
+                          <div className="w-8 h-8 sm:w-10 sm:h-10 bg-primary rounded-lg flex items-center justify-center shadow-sm group-hover:shadow-md transition-all duration-200 flex-shrink-0">
+                            <CheckSquare className="h-4 w-4 sm:h-5 sm:w-5 text-primary-foreground" />
                           </div>
-                          <div className="flex-1">
-                            <CardTitle className="text-lg font-semibold">{task.title}</CardTitle>
-                            <div className="flex items-center gap-2 mt-1">
+                          <div className="flex-1 min-w-0">
+                            <CardTitle className="text-base sm:text-lg font-semibold break-words">{task.title}</CardTitle>
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-2 mt-1">
                               {getPriorityBadge(task.priority)}
                               {task.due_date && (
-                                <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                                <div className="flex items-center gap-1 text-xs sm:text-sm text-muted-foreground">
                                   <Clock className="h-3 w-3" />
                                   <span>Due: {format(new Date(task.due_date), 'MMM dd, yyyy')}</span>
                                 </div>
@@ -414,22 +386,24 @@ export function Tasks() {
                             </div>
                           </div>
                         </div>
-                        <CardDescription className="text-sm">
+                        <CardDescription className="text-xs sm:text-sm truncate">
                           Assigned by {task.assigned_by_profile.full_name}
                         </CardDescription>
                       </div>
-                      {getStatusBadge(task.status)}
+                      <div className="flex-shrink-0">
+                        {getStatusBadge(task.status)}
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent className="pt-0">
-                    <p className="text-sm text-muted-foreground mb-4 leading-relaxed">{task.description}</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground mb-4 leading-relaxed break-words">{task.description}</p>
                     {task.status !== 'completed' && (
-                      <div className="flex gap-3">
+                      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                         {task.status === 'pending' && (
                           <Button
                             onClick={() => handleStatusUpdate(task.id, 'in_progress')}
                             size="sm"
-                            className="bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200 hover:scale-105"
+                            className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200 hover:scale-105"
                           >
                             Start Task
                           </Button>
@@ -437,7 +411,7 @@ export function Tasks() {
                         {task.status === 'in_progress' && (
                           <Button
                             onClick={() => handleStatusUpdate(task.id, 'completed')}
-                            className="bg-success text-success-foreground hover:bg-success/90 transition-all duration-200 hover:scale-105"
+                            className="w-full sm:w-auto bg-success text-success-foreground hover:bg-success/90 transition-all duration-200 hover:scale-105"
                             size="sm"
                           >
                             <CheckCircle2 className="h-4 w-4 mr-2" />

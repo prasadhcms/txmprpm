@@ -105,7 +105,7 @@ export function LoginForm() {
         <div className="grid lg:grid-cols-2 gap-12 items-center min-h-[calc(100vh-200px)]">
           
           {/* Left Side - Hero Content */}
-          <div className="space-y-8 animate-fade-in-up">
+          <div className="space-y-8 ">
             <div className="space-y-6">
 
               <h1 className="text-5xl text-neutral-700 font-bold leading-tight">
@@ -162,7 +162,7 @@ export function LoginForm() {
           </div>
 
           {/* Right Side - Login Form */}
-          <div className="flex justify-center lg:justify-end animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
+          <div className="flex justify-center lg:justify-end">
             <Card className="w-full max-w-md border-0 shadow-2xl bg-card/95 backdrop-blur-sm">
               <CardHeader className="text-center space-y-4 pb-6">
                 <div>

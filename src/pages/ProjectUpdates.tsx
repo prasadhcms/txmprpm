@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
-import { StorageService } from '@/lib/storage'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { ImageUtils } from '@/lib/image-utils'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -22,7 +22,6 @@ import {
   Calendar,
   Eye,
   Save,
-  AlertCircle,
   Loader2
 } from 'lucide-react'
 import { format } from 'date-fns'
@@ -95,6 +94,7 @@ export function ProjectUpdates() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
     if (!profile || isSubmitting || isUploadingImages) return
 
     // Check if images are still uploading
@@ -188,6 +188,15 @@ export function ProjectUpdates() {
 
   const myUpdates = projectUpdates.filter(update => update.employee_id === profile?.id)
   const pendingUpdates = projectUpdates.filter(update => update.status === 'submitted')
+  
+  // Smart default tab based on user role and pending reviews
+  const getDefaultTab = () => {
+    if (profile?.role === 'manager' || profile?.role === 'super_admin') {
+      // For managers/admins, prioritize "Pending Reviews" if there are updates to review
+      return pendingUpdates.length > 0 ? 'pending-reviews' : 'my-updates'
+    }
+    return 'my-updates'
+  }
 
   if (loading) {
     return (
@@ -225,6 +234,9 @@ export function ProjectUpdates() {
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Create Project Update</DialogTitle>
+              <DialogDescription>
+                Fill out the form to submit a new project update. Images can be uploaded to showcase progress.
+              </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
@@ -304,7 +316,7 @@ export function ProjectUpdates() {
         </Dialog>
       </div>
 
-      <Tabs defaultValue="my-updates" className="space-y-4">
+      <Tabs defaultValue={getDefaultTab()} className="space-y-4">
         <TabsList>
           <TabsTrigger value="my-updates">My Updates</TabsTrigger>
           {(profile?.role === 'manager' || profile?.role === 'super_admin') && (
@@ -376,7 +388,7 @@ export function ProjectUpdates() {
                         {update.images.slice(0, 4).map((image, index) => (
                           <img
                             key={index}
-                            src={StorageService.getOptimizedImageUrl(image, { width: 80, height: 60, quality: 80 })}
+                            src={ImageUtils.getOptimizedImageUrl(image, { width: 80, height: 60, quality: 80 })}
                             alt={`Project image ${index + 1}`}
                             className="w-16 h-12 object-cover rounded border"
                             onError={(e) => {
@@ -455,7 +467,7 @@ export function ProjectUpdates() {
                           {update.images.slice(0, 5).map((image, index) => (
                             <img
                               key={index}
-                              src={StorageService.getOptimizedImageUrl(image, { width: 80, height: 60, quality: 80 })}
+                              src={ImageUtils.getOptimizedImageUrl(image, { width: 80, height: 60, quality: 80 })}
                               alt={`Project image ${index + 1}`}
                               className="w-16 h-12 object-cover rounded border"
                               onError={(e) => {
@@ -555,7 +567,7 @@ export function ProjectUpdates() {
                         {update.images.slice(0, 4).map((image, index) => (
                           <img
                             key={index}
-                            src={StorageService.getOptimizedImageUrl(image, { width: 80, height: 60, quality: 80 })}
+                            src={ImageUtils.getOptimizedImageUrl(image, { width: 80, height: 60, quality: 80 })}
                             alt={`Project image ${index + 1}`}
                             className="w-16 h-12 object-cover rounded border"
                             onError={(e) => {
@@ -586,6 +598,9 @@ export function ProjectUpdates() {
               <FileText className="h-5 w-5" />
               Project Update Details
             </DialogTitle>
+            <DialogDescription>
+              Review the details of the project update, including description and images.
+            </DialogDescription>
           </DialogHeader>
           {selectedUpdate && (
             <div className="space-y-6">
@@ -631,7 +646,7 @@ export function ProjectUpdates() {
                     {selectedUpdate.images.map((image, index) => (
                       <div key={index} className="relative group">
                         <img
-                          src={StorageService.getOptimizedImageUrl(image, { width: 300, height: 200, quality: 85 })}
+                          src={ImageUtils.getOptimizedImageUrl(image, { width: 300, height: 200, quality: 85 })}
                           alt={`Project image ${index + 1}`}
                           className="w-full h-32 object-cover rounded border hover:shadow-lg transition-shadow cursor-pointer"
                           onClick={() => window.open(image, '_blank')}
